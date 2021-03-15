@@ -65,7 +65,7 @@ jobs:
           paths: [backend/node_modules]
           key: backend-build
 
-other-tasks:
+  other-tasks:
     docker:
       - image: circleci/node:13.8.0
     steps:
