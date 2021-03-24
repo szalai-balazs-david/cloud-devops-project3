@@ -165,16 +165,7 @@ jobs:
              ARN=$(aws s3 ls | grep udapeople)
              curl -H "Content-Type: text/plain" -H "token: 96de3f6f-20b4-4fc1-9a39-e9c22015d63d" \
                --request PUT \
-               --data "$ARN" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID:0:7}
-      - run:
-          name: Add back-end ip to ansible inventory
-          command: |
-            # Your code here
-            exit 1
-      - persist_to_workspace:
-          root: ~/
-          paths:
-            - project/.circleci/ansible/inventory.txt
+               --data "$ARN" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID}
       # Here's where you will add some code to rollback on failure 
 
   other-tasks:
