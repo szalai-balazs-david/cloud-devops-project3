@@ -166,7 +166,45 @@ jobs:
              curl -H "Content-Type: text/plain" -H "token: 96de3f6f-20b4-4fc1-9a39-e9c22015d63d" \
                --request PUT \
                --data "$ARN" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID}
-      # Here's where you will add some code to rollback on failure 
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/.circleci/ansible/inventory.txt
+      # Here's where you will add some code to rollback on failure      
+
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.11
+        environment:
+          TYPEORM_HOST: $TYPEORM_HOST
+          TYPEORM_USERNAME: $TYPEORM_USERNAME
+          TYPEORM_PASSWORD: $TYPEORM_PASSWORD
+          TYPEORM_DATABASE: $TYPEORM_DATABASE
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: [e0:5c:91:23:b2:01:6a:84:a0:c0:78:57:c3:9d:18:6b]
+      - attach_workspace:
+          at: ~/project
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update tar gzip ansible nodejs npm curl
+            pip install awscli
+      - run:
+          name: Create inventory
+          command: |
+            cd .circleci/ansible
+            URLS=$(curl -H "token: 96de3f6f-20b4-4fc1-9a39-e9c22015d63d" \
+              --request GET \
+              https://api.memstash.io/values/url_${CIRCLE_WORKFLOW_ID})
+            echo "$URLS" >> inventory.txt
+            cat inventory.txt
+      - run:
+          name: Configure server
+          command: |
+            ansible-playbook -i inventory.txt configure-server.yml
+      # Here's where you will add some code to rollback on failure  
 
   other-tasks:
     docker:
@@ -194,6 +232,8 @@ workflows:
           requires: [test-frontend]
       - deploy-infrastructure:
           requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
       - other-tasks:
           requires:
-            - deploy-infrastructure
+            - configure-infrastructure
