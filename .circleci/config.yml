@@ -203,10 +203,6 @@ workflows:
           requires: [test-frontend]
       - deploy-infrastructure:
           requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-          filters:
-            branches:
-              only: [test-feature-branch]
       - other-tasks:
           requires:
-            - scan-frontend
-            - scan-backend
+            - deploy-infrastructure
