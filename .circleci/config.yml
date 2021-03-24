@@ -133,6 +133,50 @@ jobs:
           paths: [backend/node_modules]
           key: backend-build
 
+  deploy-infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run: yum -y install tar gzip
+      - run:
+          name: Ensure back-end infrastructure exists
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/backend.yml \
+              --tags project=udapeople \
+              --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID}"
+            URLS=$(aws ec2 describe-instances --region us-west-2 \
+              --query "Reservations[*].Instances[*].PublicIpAddress"  \
+              --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID}"  \
+              --output text)
+            curl -H "Content-Type: text/plain" -H "token: 96de3f6f-20b4-4fc1-9a39-e9c22015d63d" \
+              --request PUT \
+              --data "$URLS" https://api.memstash.io/values/url_${CIRCLE_WORKFLOW_ID}
+      - run:
+          name: Ensure front-end infrastructure exist
+          command: |
+            aws cloudformation deploy \
+              --template-file .circleci/files/frontend.yml \
+              --tags project=udapeople \
+              --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID}"
+             ARN=$(aws s3 ls | grep udapeople)
+             curl -H "Content-Type: text/plain" -H "token: 96de3f6f-20b4-4fc1-9a39-e9c22015d63d" \
+               --request PUT \
+               --data "$ARN" https://api.memstash.io/values/arn_${CIRCLE_WORKFLOW_ID:0:7}
+      - run:
+          name: Add back-end ip to ansible inventory
+          command: |
+            # Your code here
+            exit 1
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/.circleci/ansible/inventory.txt
+      # Here's where you will add some code to rollback on failure 
+
   other-tasks:
     docker:
       - image: circleci/node:13.8.0
@@ -157,6 +201,11 @@ workflows:
           requires: [test-backend]
       - scan-frontend:
           requires: [test-frontend]
+      - deploy-infrastructure:
+          requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+          filters:
+            branches:
+              only: [test-feature-branch]
       - other-tasks:
           requires:
             - scan-frontend
